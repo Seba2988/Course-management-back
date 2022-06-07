@@ -2,6 +2,7 @@ const express = require("express");
 const studentAuth = require("../middleware/studentAuth");
 const professorAuth = require("../middleware/professorAuth");
 const Student = require("../models/studentModel");
+const studentsMiddleware = require("../middleware/studentsMiddleware");
 
 const router = new express.Router();
 
@@ -117,32 +118,80 @@ router.patch(
 	}
 );
 
-router.get("/students/all", professorAuth, async (req, res) => {
+router.get("/students/:id/all-courses", studentAuth, async (req, res) => {
+	const _id = req.params.id;
 	try {
-		const students = await Student.find({});
-		if (students.length === 0) {
-			throw new Error({ message: "Students not found" });
-		}
-		students.sort((a, b) =>
-			a.lastName < b.lastName
-				? -1
-				: a.lastName === b.lastName
-				? a.name < b.name
-					? -1
-					: a.name === b.name
-					? 0
-					: 1
-				: 1
-		);
-		for (let i = 0; i < students.length; i++) {
-			await students[i].populate({
-				path: "courses.courseId",
+		const student = await Student.findById(_id);
+		if (!student) {
+			throw new Error({
+				status: 404,
+				message: "Student not found",
 			});
 		}
-		res.send(students);
+		await student.populate({
+			path: "courses.courseId",
+		});
+		const courses = [];
+		for (let i = 0; i < student.courses.length; i++) {
+			courses.push(student.courses[i].courseId);
+		}
+		courses.sort((a, b) => (a.name < b.name ? -1 : 1));
+		res.send(courses);
 	} catch (err) {
 		res.send(err);
 	}
+});
+router.get("/students/get-student/:id", professorAuth, async (req, res) => {
+	const _id = req.params.id;
+	try {
+		const student = await Student.findById(_id);
+		if (!student) {
+			throw new Error({
+				status: 404,
+				message: "Student not found",
+			});
+		}
+		await student.populate({
+			path: "courses.courseId",
+		});
+		res.send(student);
+	} catch (err) {
+		res.send(err);
+	}
+});
+router.get("/students/all", professorAuth, async (req, res) => {
+	const students = await studentsMiddleware.getAllStudents();
+	if (!students) {
+		return res.status(404).send({
+			message: "Students not found",
+		});
+	}
+	res.send(students);
+	// try {
+	// 	const students = await Student.find({});
+	// 	if (students.length === 0) {
+	// 		throw new Error({ message: "Students not found" });
+	// 	}
+	// 	students.sort((a, b) =>
+	// 		a.lastName < b.lastName
+	// 			? -1
+	// 			: a.lastName === b.lastName
+	// 			? a.name < b.name
+	// 				? -1
+	// 				: a.name === b.name
+	// 				? 0
+	// 				: 1
+	// 			: 1
+	// 	);
+	// 	for (let i = 0; i < students.length; i++) {
+	// 		await students[i].populate({
+	// 			path: "courses.courseId",
+	// 		});
+	// 	}
+	// 	res.send(students);
+	// } catch (err) {
+	// 	res.send(err);
+	// }
 });
 
 router.delete("/students/delete/:id", professorAuth, async (req, res) => {

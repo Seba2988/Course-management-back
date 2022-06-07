@@ -77,7 +77,7 @@ const studentSchema = new mongoose.Schema({
 	courses: [
 		{
 			courseId: {
-				type: mongoose.Types.ObjectId,
+				type: mongoose.Schema.Types.ObjectId,
 				ref: "Course",
 			},
 		},

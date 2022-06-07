@@ -2,6 +2,7 @@ const express = require("express");
 const professorAuth = require("../middleware/professorAuth");
 const Course = require("../models/courseModel");
 const Student = require("../models/studentModel");
+const studentsMiddleware = require("../middleware/studentsMiddleware");
 
 const router = new express.Router();
 
@@ -38,19 +39,50 @@ router.get("/courses/all", async (req, res) => {
 
 router.delete("/courses/delete/:id", professorAuth, async (req, res) => {
 	const _id = req.params.id;
+	// try {
+	// 	const course = await Course.findByIdAndRemove(_id);
+	// 	if (!course)
+	// 		throw new Error({
+	// 			status: 404,
+	// 			message: "Course not found",
+	// 		});
+
+	// 	res.send();
+	// } catch (err) {
+	// 	res.send(err);
+	// }
 	try {
-		const course = await Course.findByIdAndRemove(_id);
+		const course = await Course.findById(_id);
 		if (!course)
 			throw new Error({
 				status: 404,
 				message: "Course not found",
 			});
-		res.send();
+		res.send(await course.deleteCourse());
+	} catch (err) {
+		res.send(err.message);
+	}
+});
+router.get("/courses/get-course/:id", async (req, res) => {
+	const _id = req.params.id;
+	try {
+		const course = await Course.findById(_id);
+
+		if (!course) {
+			throw new Error({
+				status: 404,
+				message: "Course not found",
+			});
+		}
+		await course.populate({
+			path: "students.studentId",
+		});
+		console.log(course);
+		res.send(course);
 	} catch (err) {
 		res.send(err);
 	}
 });
-
 router.patch(
 	"/courses/:courseId/add-student/:studentId",
 	professorAuth,
@@ -86,6 +118,20 @@ router.patch(
 		}
 	}
 );
+router.patch(
+	"/courses/:courseId/delete-student/:studentId",
+	professorAuth,
+	async (req, res) => {
+		const _id = req.params.courseId;
+		const studentId = req.params.studentId;
+		try {
+			const course = await Course.findById(_id);
+			res.send(await course.deleteStudent(studentId));
+		} catch (err) {
+			res.send(err);
+		}
+	}
+);
 
 router.patch(
 	"/courses/:courseId/delete-all-students",
@@ -118,6 +164,29 @@ router.patch(
 			res.send(course);
 		} catch (err) {
 			res.send(err.message);
+		}
+	}
+);
+
+router.get(
+	"/courses/:courseId/all-available-students",
+	professorAuth,
+	async (req, res) => {
+		const _id = req.params.courseId;
+		try {
+			const course = await Course.findById(_id);
+			if (!course)
+				throw new Error({
+					status: 404,
+					message: "Course not found",
+				});
+			const availableStudents = await Student.find({
+				"courses.courseId": { $ne: { _id: _id } },
+			});
+
+			res.send(availableStudents);
+		} catch (err) {
+			res.send(err);
 		}
 	}
 );
